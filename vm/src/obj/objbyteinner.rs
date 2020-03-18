@@ -40,10 +40,15 @@ impl TryFromObject for PyByteInner {
                 elements: k.try_value().unwrap()
             }),
             l @ PyList => l.get_byte_inner(vm),
-            obj => Err(vm.new_type_error(format!(
-                "a bytes-like object is required, not {}",
-                obj.class()
-            ))),
+            obj => {
+                let iter = vm.get_method_or_type_error(obj.clone(), "__iter__", || {
+                    format!("a bytes-like object is required, not {}", obj.class())
+                })?;
+                let iter = PyIterable::from_method(iter);
+                Ok(PyByteInner {
+                    elements: iter.iter(vm)?.collect::<PyResult<_>>()?,
+                })
+            }
         })
     }
 }
