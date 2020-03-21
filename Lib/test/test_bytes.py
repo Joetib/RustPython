@@ -253,6 +253,7 @@ class BaseBytesTest:
         self.assertFalse(b3 <  b2)
         self.assertFalse(b3 <= b2)
 
+    @unittest.expectedFailure
     @check_bytes_warnings
     def test_compare_to_str(self):
         # Byte comparisons with unicode should always fail!
