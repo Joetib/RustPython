@@ -67,11 +67,21 @@ impl PyValue for PyFrozenSet {
 }
 
 #[derive(Default, Clone)]
-struct PySetInner {
+pub struct PySetInner {
     content: SetContentType,
 }
 
 impl PySetInner {
+    pub fn into_set(self, vm: &VirtualMachine) -> PySetRef {
+        PySet {
+            inner: RefCell::new(self),
+        }
+        .into_ref(vm)
+    }
+    pub fn into_frozenset(self, vm: &VirtualMachine) -> PyFrozenSetRef {
+        PyFrozenSet { inner: self }.into_ref(vm)
+    }
+
     fn new(iterable: PyIterable, vm: &VirtualMachine) -> PyResult<PySetInner> {
         let mut set = PySetInner::default();
         for item in iterable.iter(vm)? {
@@ -88,8 +98,11 @@ impl PySetInner {
         }
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.content.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     fn sizeof(&self) -> usize {
@@ -97,9 +110,7 @@ impl PySetInner {
     }
 
     fn copy(&self) -> PySetInner {
-        PySetInner {
-            content: self.content.clone(),
-        }
+        self.clone()
     }
 
     fn contains(&self, needle: &PyObjectRef, vm: &VirtualMachine) -> PyResult<bool> {
@@ -259,11 +270,11 @@ impl PySetInner {
         Ok(format!("{{{}}}", str_parts.join(", ")))
     }
 
-    fn add(&mut self, item: &PyObjectRef, vm: &VirtualMachine) -> PyResult<()> {
+    pub fn add(&mut self, item: &PyObjectRef, vm: &VirtualMachine) -> PyResult<()> {
         self.content.insert(vm, item, ())
     }
 
-    fn remove(&mut self, item: &PyObjectRef, vm: &VirtualMachine) -> PyResult<()> {
+    pub fn remove(&mut self, item: &PyObjectRef, vm: &VirtualMachine) -> PyResult<()> {
         self.content.delete(vm, item)
     }
 
@@ -516,7 +527,7 @@ impl PySet {
     #[pymethod(name = "__repr__")]
     fn repr(zelf: PyRef<Self>, vm: &VirtualMachine) -> PyResult {
         let inner = zelf.inner.borrow();
-        let s = if inner.len() == 0 {
+        let s = if inner.is_empty() {
             "set()".to_owned()
         } else if let Some(_guard) = ReprGuard::enter(zelf.as_object()) {
             inner.repr(vm)?
@@ -782,7 +793,7 @@ impl PyFrozenSet {
     #[pymethod(name = "__repr__")]
     fn repr(zelf: PyRef<Self>, vm: &VirtualMachine) -> PyResult {
         let inner = &zelf.inner;
-        let s = if inner.len() == 0 {
+        let s = if inner.is_empty() {
             "frozenset()".to_owned()
         } else if let Some(_guard) = ReprGuard::enter(zelf.as_object()) {
             format!("frozenset({})", inner.repr(vm)?)
