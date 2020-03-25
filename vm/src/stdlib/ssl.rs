@@ -172,9 +172,8 @@ fn ssl_enum_certificates(store_name: PyStringRef, vm: &VirtualMachine) -> PyResu
     let open_fns = [CertStore::open_current_user, CertStore::open_local_machine];
     let stores = open_fns
         .iter()
-        .map(|open| open(store_name.as_str()))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| super::os::convert_io_error(vm, e))?;
+        .filter_map(|open| open(store_name.as_str()).ok())
+        .collect::<Vec<_>>();
     let certs = stores.iter().map(|s| s.certs()).flatten().map(|c| {
         let cert = vm.ctx.new_bytes(c.to_der().to_owned());
         let enc_type = unsafe {
